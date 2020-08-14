@@ -18,6 +18,8 @@ class MinimalExample:
 
     BECKHOFF_VENDOR_ID = 0x0002
     EK1100_PRODUCT_CODE = 0x044c2c52
+    EL1018_PRODUCT_CODE = 0x03fa3052
+    EL2008_PRODUCT_CODE = 0x07d83052
     EL3002_PRODUCT_CODE = 0x0bba3052
 
     def __init__(self, ifname):
@@ -26,7 +28,8 @@ class MinimalExample:
         SlaveSet = collections.namedtuple(
             'SlaveSet', 'slave_name product_code config_func')
         self._expected_slave_mapping = {0: SlaveSet('EK1100', self.EK1100_PRODUCT_CODE, None),
-                                        1: SlaveSet('EL3002', self.EL3002_PRODUCT_CODE, self.el3002_setup)}
+                                        1: SlaveSet('EL1018', self.EL1018_PRODUCT_CODE, None),
+                                        2: SlaveSet('EL2008', self.EL2008_PRODUCT_CODE, None)}
 
     def el3002_setup(self, slave_pos):
         slave = self._master.slaves[slave_pos]
@@ -77,21 +80,43 @@ class MinimalExample:
                         print('al status code {} ({})'.format(hex(slave.al_status),
                                                               pysoem.al_status_code_to_string(slave.al_status)))
                 raise Exception('not all slaves reached OP state')
-
+            
+            output_len = len(self._master.slaves[2].output)
+            toggle = True
+            tmp = bytearray([0 for i in range(output_len)])
+            tmp_hld = 0x00
+            
             try:
                 while 1:
                     # free run cycle
                     self._master.send_processdata()
                     self._master.receive_processdata(2000)
 
-                    volgage_ch_1_el3002_as_bytes = self._master.slaves[1].input
-                    volgage_ch_1_el3002_as_int16 = struct.unpack(
-                        'hh', volgage_ch_1_el3002_as_bytes)[0]
-                    voltage = volgage_ch_1_el3002_as_int16 * 10 / 0x8000
-                    print('EL3002 Ch 1 PDO: {:#06x}; Voltage: {:.4}'.format(
-                        volgage_ch_1_el3002_as_int16, voltage))
+                   
 
-                    time.sleep(1)
+                    if toggle:
+                        tmp[0] = 0x00 
+                    else:
+                        tmp_hld = tmp_hld << 1
+                        tmp_hld = tmp_hld | 1
+                        tmp[0] = tmp_hld
+
+                    if (tmp_hld >= 0x80):
+                        tmp_hld = 0x00
+                    
+                    self._master.slaves[2].output = bytes(tmp)
+
+                    toggle ^= True
+                            
+                    time.sleep(.008)
+                    #volgage_ch_1_el3002_as_bytes = self._master.slaves[1].input
+                    #volgage_ch_1_el3002_as_int16 = struct.unpack(
+                     #   'hh', volgage_ch_1_el3002_as_bytes)[0]
+                    #voltage = volgage_ch_1_el3002_as_int16 * 10 / 0x8000
+                    #print('EL3002 Ch 1 PDO: {:#06x}; Voltage: {:.4}'.format(
+                    #    volgage_ch_1_el3002_as_int16, voltage))
+
+                    
 
             except KeyboardInterrupt:
                 # ctrl-C abort handling

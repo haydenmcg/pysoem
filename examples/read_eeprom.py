@@ -11,7 +11,7 @@ def read_eeprom_of_first_slave(ifname):
     
     if master.config_init() > 0:
     
-        first_slave = master.slaves[0]
+        first_slave = master.slaves[2]
         
         for i in range(0, 0x80, 2):
             print('{:04x}:'.format(i), end='')
